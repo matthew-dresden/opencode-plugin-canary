@@ -1,0 +1,11 @@
+{
+  "name": "@matthew-dresden/opencode-plugin-canary",
+  "version": "0.0.0-canary.0",
+  "type": "module",
+  "main": "index.js",
+  "license": "Apache-2.0",
+  "description": "Canary: publish/install probes for opencode v2 plugin migration",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  }
+}
