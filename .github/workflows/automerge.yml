@@ -1,0 +1,46 @@
+name: Automerge
+
+# Mirrors the fleet automerge plane (zai-multi-account /
+# opencode-cross-session-messaging) with two canary adaptations: the identity
+# is the workflow's own GITHUB_TOKEN (this repo carries no GH_APP_* secrets)
+# and the author gate keeps every Dependabot pull request out of this human
+# plane (the pull_request_target dependabot-auto-merge.yml owns that plane).
+# Draft refusal stays: the guard keeps every draft out, ready_for_review
+# re-enters on publish. Every merge command carries --auto; a bare merge
+# could fire on a red pull request and is forbidden.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  enable-automerge:
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check auto-merge state
+        id: state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          enabled="$(gh pr view '${{ github.event.pull_request.number }}'
+          --repo '${{ github.repository }}' --json autoMergeRequest
+          --jq '.autoMergeRequest != null')";
+          echo "already_enabled=${enabled}" >> "${GITHUB_OUTPUT}"
+
+      - name: Enable auto-merge (squash)
+        if: steps.state.outputs.already_enabled == 'false'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh pr merge --auto --squash
+          --repo '${{ github.repository }}'
+          '${{ github.event.pull_request.number }}'

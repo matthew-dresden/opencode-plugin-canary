@@ -1,0 +1,34 @@
+name: CI
+
+# Minimal CI for the canary repo (F3 fleet unit): npm install + npm test,
+# both tolerant of this repo's shape. Scripts are skipped on install because
+# the prepare hook needs gitleaks, which hosted runners do not ship; npm test
+# is --if-present because the canary carries no test script yet.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies (npm install)
+        shell: bash
+        run: npm install --ignore-scripts
+
+      - name: Test suites (npm test)
+        shell: bash
+        run: npm test --if-present
