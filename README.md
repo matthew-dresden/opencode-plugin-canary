@@ -16,3 +16,4 @@ Per the frozen migration docs ("Support V1 and V2 from one package"):
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE).
+F3 canary proof: CI, auto-merge and release chain exercised by the 0.0.0-canary.1 version bump.
