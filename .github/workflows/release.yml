@@ -1,0 +1,61 @@
+name: Release
+
+# Version-bearing repo: on every push to main, tag v<version> from
+# package.json when the tag is absent, then publish the GitHub release at
+# that tag. Idempotent: an existing tag is skipped, never re-tagged.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read version (package.json is the single source)
+        id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> "${GITHUB_OUTPUT}"
+
+      - name: Check tag absent
+        id: tagstate
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Tag and publish the GitHub release
+        if: steps.tagstate.outputs.exists == 'false'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+          NOTES="Automated release of ${TAG} from commit ${GITHUB_SHA}."
+          if [[ "${VERSION}" == *-* ]]; then
+            gh release create "${TAG}" --prerelease --title "${TAG}" --notes "${NOTES}" --target "${GITHUB_SHA}"
+          else
+            gh release create "${TAG}" --title "${TAG}" --notes "${NOTES}" --target "${GITHUB_SHA}"
+          fi
